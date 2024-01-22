@@ -1,0 +1,243 @@
+---
+title: "Markdown"
+author: "Seth Marcus"
+date: "2023-08-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/home/seth/Documents/google-data-analytics-cert/")
+```
+
+```{r}
+rm(list=ls())
+gc()
+
+options(scipen=999)
+# directory = "/home/seth/Documents/google_da_cert/"
+# setwd(directory)
+set.seed(100)
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(hms)
+#library(chron)
+```
+
+
+## Ask
+
+### Business Task
+
+What is the company? Cyclist is a bike-share program that features more than 5,800 bicycles and 600 docking stations. Cyclistic sets itself apart by also offering reclining bikes, hand tricycles, and cargo bikes, making bike-share more inclusive to people with disabilities and riders who can’t use a standard two-wheeled bike. The majority of riders opt for traditional bikes; about 8% of riders use the assistive options. Cyclistic users are more likely to ride for leisure, but about 30% use them to commute to work each day
+
+Cyclistic’s finance analysts have concluded that annual members are much more profitable than casual riders. Although the pricing flexibility helps Cyclistic attract more customers, Moreno believes that maximizing the number of annual members will be key to future growth. Rather than creating a marketing campaign that targets all-new customers, Moreno believes there is a very good chance to convert casual riders into members. She notes that casual riders are already aware of the Cyclistic program and have chosen Cyclistic for their mobility needs.
+
+Therefore, a critical piece of information to know is How do annual members and casual riders use Cyclistic bikes differently so that Cyclist can create an effective targeted marketing startegy.
+
+### Key Stakeholders
+
+Marketing team
+
+
+
+## Prepare
+
+-   The data is located in 12 .csv files, with each file associated with a different month of the year. All indications are that the data is reliable, original, current, cited, and consistent (except for the name of 1 file). In this case I could not read the license, but given the circumstances (it was 'handed' to me by Google/Coursea) I will assume that using it for a case study (and not for profit) is within guidelines. In the event the data was not handed to me on a silver platter, the data does appear to be reliable as the source of the data is Motivate International, an organization that is heavily involved in the NYC bike-sharing market. The data does appear to be original as Motivate International is the collector of the data.  The data is current and is cited, therefore, we can confidently say that there are no issues with the bias or credibility with the data.  Either way, the source of the data is [here](https://divvy-tripdata.s3.amazonaws.com/index.html)
+
+The data does not appear to be comprehensive (there are no months missing, and no glaring holes of missing entires). There could have been better data collection, but it is still very much usable.
+
+Nonetheless, the data does appear to be able to help
+
+### Limits
+This is public data that you can use to explore how different customer types are using Cyclistic bikes. But note that data-privacy issues prohibit you from using riders’ personally identifiable information. This means that you won’t be able to connect pass purchases to credit card numbers to determine if casual riders live in the Cyclistic service area or if they have purchased multiple single passes.
+
+
+## Process
+I have decided to use R since given the size of the data, a spreadsheet is not a reasonable option. 
+
+### Load the data
+```{r}
+jan = read.csv(file = 'raw_data/202201-divvy-tripdata/202201-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+feb = read.csv(file = 'raw_data/202202-divvy-tripdata/202202-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings ='')
+mar = read.csv(file = 'raw_data/202203-divvy-tripdata/202203-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+apr = read.csv(file = 'raw_data/202204-divvy-tripdata/202204-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+may = read.csv(file = 'raw_data/202205-divvy-tripdata/202205-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+jun = read.csv(file = 'raw_data/202206-divvy-tripdata/202206-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+jul = read.csv(file = 'raw_data/202207-divvy-tripdata/202207-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+aug = read.csv(file = 'raw_data/202208-divvy-tripdata/202208-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+sep = read.csv(file = 'raw_data/202209-divvy-tripdata/202209-divvy-publictripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+oct = read.csv(file = 'raw_data/202210-divvy-tripdata/202210-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+nov = read.csv(file = 'raw_data/202211-divvy-tripdata/202211-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+dec = read.csv(file = 'raw_data/202212-divvy-tripdata/202212-divvy-tripdata.csv', header = TRUE, stringsAsFactors = F, na.strings = '')
+```
+
+```{r}
+# Comibe all the months into 1 table
+year_2022 = bind_rows(jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec)
+```
+
+### Data type transformations
+```{r}
+year_2022$rideable_type = as.factor(year_2022$rideable_type)
+year_2022$started_at <- as.POSIXct(year_2022$started_at, format="%Y-%m-%d %H:%M:%S", tz="UTC")
+year_2022$ended_at <- as.POSIXct(year_2022$ended_at, format="%Y-%m-%d %H:%M:%S", tz="UTC")
+year_2022$start_lat = as.numeric(year_2022$start_lat)
+year_2022$start_lng = as.numeric(year_2022$start_lng)
+year_2022$end_lat = as.numeric(year_2022$end_lat)
+year_2022$end_lng = as.numeric(year_2022$end_lng)
+year_2022$member_casual = as.factor(year_2022$member_casual)
+```
+
+### Data Mutations
+```{r}
+year_2022 = year_2022 %>% 
+  mutate(ride_length = difftime(ended_at, started_at, units="secs"), #seconds
+         day_of_week = weekdays(started_at))
+```
+
+## Analyze
+
+### Clean up and prepare for analysis
+
+```{r}
+colnames(year_2022)
+nrow(year_2022)
+dim(year_2022)
+str(year_2022)
+```
+
+
+
+```{r}
+summary(year_2022)
+```
+
+```{r}
+head(year_2022)
+```
+
+
+```{r}
+table(year_2022$member_casual)
+```
+
+
+```{r}
+year_2022 %>% 
+  filter(start_station_name == "HQ QR" | ride_length <= 0) %>% 
+  select(c("rideable_type", "ride_length", "start_station_name")) %>% 
+  arrange(start_station_name)
+```
+
+```{r}
+year_2022_v2 = year_2022[!(year_2022$ride_length < 0),]
+```
+
+
+
+### Descriptive Analysis
+
+```{r}
+summary(as.numeric(year_2022_v2$ride_length))
+```
+
+
+
+```{r}
+aggregate(year_2022_v2$ride_length ~ year_2022_v2$member_casual, FUN = mean)
+aggregate(year_2022_v2$ride_length ~ year_2022_v2$member_casual, FUN = median)
+aggregate(year_2022_v2$ride_length ~ year_2022_v2$member_casual, FUN = max)
+aggregate(year_2022_v2$ride_length ~ year_2022_v2$member_casual, FUN = min)
+```
+
+```{r}
+year_2022_v2 %>% 
+  ggplot(aes(x=as.numeric(ride_length))) +
+  geom_histogram()
+```
+
+```{r}
+# removing trips longer than 2 days 
+year_2022_v3 = year_2022_v2[!(year_2022_v2$ride_length > 172800),]
+```
+
+```{r}
+year_2022_v2 %>% 
+  ggplot(aes(x=as.numeric(ride_length))) +
+  scale_y_continuous(trans = "log1p") + 
+  geom_histogram(bins = 30)
+```
+
+```{r}
+summary(as.numeric(year_2022_v3$ride_length))
+```
+
+
+```{r}
+aggregate(year_2022_v2$ride_length ~ year_2022_v2$member_casual+year_2022_v2$day_of_week, FUN = mean)
+```
+
+```{r}
+year_2022_v2$day_of_week = ordered(year_2022_v2$day_of_week, levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+```
+
+
+```{r}
+year_2022_v2 %>% 
+  mutate(weekday = wday(started_at, label=TRUE)) %>% # creates weekday field
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n(),
+            average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)
+  
+```
+
+## Visualize
+
+```{r}
+year_2022_v2 %>% 
+  mutate(weekday = wday(started_at, label=TRUE)) %>% # creates weekday field
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n(),
+            average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday) %>% 
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) + 
+  geom_col(position = "dodge")
+```
+
+
+```{r}
+year_2022_v2 %>% 
+  mutate(weekday = wday(started_at, label=TRUE)) %>% # creates weekday field
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n(),
+            average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday) %>% 
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) + 
+  geom_col(position = "dodge")
+```
+
+
+```{r}
+year_2022_v2 %>% 
+  mutate(weekday = wday(started_at, label=TRUE)) %>% # creates weekday field
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n(),
+            manhattan_distance = abs(start_lat-end_lat) + abs(start_lng-end_lng)) %>% 
+  arrange(member_casual, weekday) %>% 
+  ggplot(aes(x = weekday, y = manhattan_distance, fill = member_casual)) + 
+  geom_col(position = "dodge")
+```
+```{r}
+summary(as.numeric(year_2022_v2$start_lat))
+summary(as.numeric(year_2022_v2$end_lat))
+summary(as.numeric(year_2022_v2$start_lng))
+summary(as.numeric(year_2022_v2$end_lng))
+```
+
+
