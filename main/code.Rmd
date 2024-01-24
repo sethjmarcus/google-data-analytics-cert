@@ -138,6 +138,11 @@ year_2022 %>%
 year_2022_v2 = year_2022[!(year_2022$ride_length < 0),]
 ```
 
+```{r}
+year_2022_v2 = year_2022_v2 %>% 
+  mutate(manhattan_dist = abs(start_lat-end_lat) + abs(start_lng - end_lng))
+```
+
 
 
 ### Descriptive Analysis
@@ -162,11 +167,6 @@ year_2022_v2 %>%
 ```
 
 ```{r}
-# removing trips longer than 2 days 
-year_2022_v3 = year_2022_v2[!(year_2022_v2$ride_length > 172800),]
-```
-
-```{r}
 year_2022_v2 %>% 
   ggplot(aes(x=as.numeric(ride_length))) +
   scale_y_continuous(trans = "log1p") + 
@@ -174,8 +174,34 @@ year_2022_v2 %>%
 ```
 
 ```{r}
-summary(as.numeric(year_2022_v3$ride_length))
+q1_md = quantile(year_2022_v2$manhattan_dist, 0.25, na.rm = TRUE) #quantile 1 for manhattan distance
+q3_md = quantile(year_2022_v2$manhattan_dist, 0.75, na.rm = TRUE) #quantile 3 for manhattan distance
+
+q1_rl = quantile(year_2022_v2$ride_length, 0.25, na.rm = TRUE) #quantile 1 for ride length
+q3_rl = quantile(year_2022_v2$ride_length, 0.75, na.rm = TRUE) #quantile 3 for ride length
 ```
+
+```{r}
+year_2022_v3 = subset(year_2022_v2
+                      , year_2022_v2$ride_length > (q1_rl - 1.5*(q3_rl-q1_rl)) 
+                      & year_2022_v2$ride_length < (q3_rl + 1.5*(q3_rl-q1_rl))
+                      )
+
+year_2022_v3 = subset(year_2022_v3
+                      , year_2022_v3$manhattan_dist > (q1_md - 1.5*(q3_md-q1_md)) 
+                      & year_2022_v3$manhattan_dist < (q3_md + 1.5*(q3_md-q1_md))
+                      )
+```
+
+
+```{r}
+year_2022_v3 %>% 
+  ggplot(aes(x=as.numeric(ride_length), y = manhattan_dist, colour = member_casual)) +
+  geom_point() + 
+  facet_wrap(vars(day_of_week))
+```
+
+
 
 
 ```{r}
@@ -212,7 +238,7 @@ year_2022_v2 %>%
 
 
 ```{r}
-year_2022_v2 %>% 
+year_2022_v3 %>% 
   mutate(weekday = wday(started_at, label=TRUE)) %>% # creates weekday field
   group_by(member_casual, weekday) %>% 
   summarise(number_of_rides = n(),
@@ -224,15 +250,16 @@ year_2022_v2 %>%
 
 
 ```{r}
-year_2022_v2 %>% 
+year_2022_v3 %>% 
   mutate(weekday = wday(started_at, label=TRUE)) %>% # creates weekday field
   group_by(member_casual, weekday) %>% 
   summarise(number_of_rides = n(),
-            manhattan_distance = abs(start_lat-end_lat) + abs(start_lng-end_lng)) %>% 
+            manhattan_distance = avg(abs(start_lat-end_lat) + abs(start_lng-end_lng))) %>% 
   arrange(member_casual, weekday) %>% 
   ggplot(aes(x = weekday, y = manhattan_distance, fill = member_casual)) + 
   geom_col(position = "dodge")
 ```
+
 ```{r}
 summary(as.numeric(year_2022_v2$start_lat))
 summary(as.numeric(year_2022_v2$end_lat))
